@@ -58,7 +58,7 @@ def main(args: argparse.Namespace, activeloop: bool = True) -> None:
         device = "cuda"
         model.to(device)
         # Creating a summary of our model and its layers:
-        summary(model, (1, 128, 128), device=device)
+        summary(model, (1, 224, 224), device=device)
     elif (
         torch.backends.mps.is_available() and not DEBUG
     ):  # PyTorch supports Apple Silicon GPU's from version 1.12
