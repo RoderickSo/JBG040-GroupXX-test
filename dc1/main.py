@@ -42,6 +42,10 @@ def main(args: argparse.Namespace, activeloop: bool = True) -> None:
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     loss_function = nn.CrossEntropyLoss()
 
+
+    ckpt_path = Path("checkpoint.pt")
+
+
     # fetch epoch and batch count from arguments
     n_epochs = args.nb_epochs
     batch_size = args.batch_size
@@ -71,6 +75,27 @@ def main(args: argparse.Namespace, activeloop: bool = True) -> None:
         # Creating a summary of our model and its layers:
         summary(model, (1, 224, 224), device=device)
 
+    def save_ckpt(epoch: int) -> None:
+        torch.save(
+            {
+                "epoch": epoch,
+                "model": model.state_dict(),
+                "optim": optimizer.state_dict(),
+            },
+            ckpt_path,
+        )
+
+    def load_ckpt() -> int:
+        if ckpt_path.exists():
+            print("Loading checkpoint...")
+            d = torch.load(ckpt_path, map_location=device)
+            model.load_state_dict(d["model"])
+            optimizer.load_state_dict(d["optim"])
+            return int(d["epoch"]) + 1
+        return 1
+
+    start_epoch = load_ckpt()
+
     # Lets now train and test our model for multiple epochs:
     train_sampler = BatchSampler(
         batch_size=batch_size, dataset=train_dataset, balanced=args.balanced_batches
@@ -82,7 +107,7 @@ def main(args: argparse.Namespace, activeloop: bool = True) -> None:
     mean_losses_train: List[torch.Tensor] = []
     mean_losses_test: List[torch.Tensor] = []
     
-    for e in range(n_epochs):
+    for e in range(start_epoch, n_epochs + 1):
         if activeloop:
 
             # Training:
@@ -90,7 +115,7 @@ def main(args: argparse.Namespace, activeloop: bool = True) -> None:
             # Calculating and printing statistics:
             mean_loss = sum(losses) / len(losses)
             mean_losses_train.append(mean_loss)
-            print(f"\nEpoch {e + 1} training done, loss on train set: {mean_loss}\n")
+            print(f"\nEpoch {e} training done, loss on train set: {mean_loss}\n")
 
             # Testing:
             losses = test_model(model, test_sampler, loss_function, device)
@@ -98,7 +123,9 @@ def main(args: argparse.Namespace, activeloop: bool = True) -> None:
             # # Calculating and printing statistics:
             mean_loss = sum(losses) / len(losses)
             mean_losses_test.append(mean_loss)
-            print(f"\nEpoch {e + 1} testing done, loss on test set: {mean_loss}\n")
+            print(f"\nEpoch {e} testing done, loss on test set: {mean_loss}\n")
+
+            save_ckpt(e)
 
             ### Plotting during training
             #plotext.clf()
